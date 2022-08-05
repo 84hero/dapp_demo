@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script type="application/javascript" src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+
+    <script type="application/javascript">
+        const abi = ["function balanceOf(address owner) view returns (uint256)", "function decimals() view returns (uint8)", "function symbol() view returns (string)", "function transfer(address to, uint amount) returns (bool)"];
+        let signer, ERC20, ERC20WithSign, walletAddress, walletBalance, tokenDecimals, tokenSymbol;
+        let res = {'address': '', 'balance': 0, 'decimals': '', 'symbol': ''};
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+
+        async function connectWallet() {
+            await provider.send("eth_requestAccounts", []);
+            signer = provider.getSigner();
+            walletAddress = await signer.getAddress();
+            document.getElementById('wallet_address').innerText = walletAddress;
+        }
+
+        async function getBalance() {
+            let ContractAddress = document.getElementById('token_address').value;
+            ERC20 = new ethers.Contract(ContractAddress, abi, provider);
+            tokenDecimals = await ERC20.decimals();
+            tokenSymbol = await ERC20.symbol();
+            walletBalance = await ERC20.balanceOf(walletAddress);
+            document.getElementById('wallet_balance').innerText = ethers.utils.formatUnits(walletBalance, tokenDecimals) + " " + tokenSymbol;
+        }
+
+        async function transfer() {
+            document.getElementById('transfer_status_success').innerText = "";
+            document.getElementById('transfer_status_success').href = "";
+            document.getElementById('transfer_status_fail').innerText = "";
+
+            ERC20WithSign = await ERC20.connect(signer);
+            let to_address = document.getElementById('to_address').value;
+            let amount = document.getElementById('amount').value;
+            let amountWei = ethers.utils.parseUnits(amount, tokenDecimals);
+
+            if (amountWei.gt(walletBalance)) {
+                document.getElementById('transfer_status_fail').innerText = '转账失败，余额不足';
+                return false;
+            }
+
+            try {
+                await ERC20WithSign.transfer(to_address, amountWei).then(async (tx) => {
+                    document.getElementById('transfer_status_success').innerText = '转账成功' + " " + tx.hash;
+                    document.getElementById('transfer_status_success').href = "https://bscscan.com/tx/" + tx.hash;
+                });
+                return true;
+            } catch (error) {
+                if (error.code == 4001) {
+                    document.getElementById('transfer_status_fail').innerText = '用户取消转账操作';
+                } else {
+                    console.log(error);
+                }
+
+                return false;
+            }
+        }
+
+    </script>
+    <meta charset="UTF-8">
+    <title>Dapp Demo</title>
+
+
+</head>
+<body>
+<h1>Dapp Demo</h1>
+<p>钱包地址：<a id="wallet_address"></a>
+    <button onclick="connectWallet()">连接钱包</button>
+<hr>
+<p>代币地址：<input type="text" id="token_address" size="50" value="0x55d398326f99059fF775485246999027B3197955"></input>（BSC_USDT）
+<p>代币余额：<a id="wallet_balance"></a>
+    <button onclick="getBalance()">查询余额</button>
+<hr>
+<p>对方地址：<input type="text" id="to_address" size="50"></input>
+<p>转账金额：<input type="text" id="amount" size="30"></input>
+<p>
+    <button onclick="transfer()">发起转账</button>
+
+<p><a id="transfer_status_success" style="color: green"></a></p>
+<p><a id="transfer_status_fail" style="color: red"></a></p>
+<p><a>欢迎加 QQ:2729128005 技术交流</a></p>
+
+
+</body>
+</html>
